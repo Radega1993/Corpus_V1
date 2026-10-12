@@ -2,7 +2,8 @@
 
 **Proyecto:** corpus reproducible de escenarios para The ONE.  
 **Fecha:** 9 de octubre de 2026.  
-**Versión del documento:** 1.0.  
+**Última actualización:** 12 de octubre de 2026.  
+**Versión del documento:** 1.1.  
 **Estado:** revisión conceptual y propuesta pendiente de validación y preregistro.
 
 ## 1. Objetivo y alcance
@@ -42,6 +43,28 @@ $$
 - \(\omega_k\): realización estocástica, registrada para reproducibilidad.
 
 El vector no incluye delivery probability, latency ni overhead de un router. Una nueva seed no se considera automáticamente un escenario nuevo. Si se incorporan descriptores derivados de movilidad o contactos, habrá que justificar su independencia del routing y cuantificar su variabilidad entre realizaciones.
+
+### 1.3 Implementación de referencia: The ONE 1.6.0
+
+**Decisión del proyecto, 12 de octubre de 2026:** utilizar **The ONE 1.6.0 del repositorio akeranen/the-one** como base del inventario de settings y de la metodología.
+
+La [página oficial de The ONE](https://akeranen.github.io/the-one/) enlaza la versión [v1.6.0](https://github.com/akeranen/the-one/tree/v1.6.0). Se ha obtenido una copia de esa etiqueta y verificado su commit y el hash del fichero de configuración distribuido.
+
+| Campo | Valor o estado |
+|---|---|
+| Repositorio de referencia | [akeranen/the-one](https://github.com/akeranen/the-one) |
+| Versión seleccionada | 1.6.0 |
+| Etiqueta verificada | v1.6.0 |
+| Commit de la etiqueta | 42b6e20f45799f2533866df215768fa9aedd0f4f |
+| SHA-256 de default_settings.txt de la etiqueta | 9e8cceda868bfce709946b31304352dc0b1e8369f553e31f9dbe12795ca383b5 |
+| Modificaciones o extensiones de la instalación del proyecto | TBD: no se ha inspeccionado la instalación del usuario |
+| Versión de Java y entorno de ejecución | TBD: pendiente de registrar y validar |
+
+El hash se ha calculado sobre los **bytes originales del archivo recuperado de la etiqueta**, sin normalizar finales de línea. No se atribuye ese hash al archivo local del usuario ni a futuros overlays.
+
+**Consecuencia para el estudio:** las claves, defaults, unidades, modelos y parámetros derivados deberán justificarse mediante el código de esta revisión. La rama master y la documentación de otras revisiones no se usarán como sustitutos del inventario de v1.6.0. La versión del simulador no decide por sí sola las features ni la métrica matemática.
+
+La base upstream queda identificada. El cierre completo del ámbito de implementación requiere registrar también las extensiones, parches y entorno que realmente se utilicen. Las constantes del corpus, la normalización y la selección siguen pendientes de definición.
 
 ## 2. Notación y condiciones comunes
 
