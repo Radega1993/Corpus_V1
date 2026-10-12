@@ -1,1 +1,0 @@
-Report.reportDir = reports_prophet_test/

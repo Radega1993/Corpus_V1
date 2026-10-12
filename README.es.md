@@ -1,222 +1,751 @@
 # the-one-scenario-corpus
 
-*(Versión en castellano. English: [README.md](README.md).)*
+Documentos de trabajo: [explicación (EN)](README.md) · [checklist de fases](CHECKLIST.es.md)
 
-**Corpus de escenarios y pipeline de análisis** para el simulador [The ONE](https://akeranen.github.io/the-one/) (Opportunistic Network Environment). Este proyecto proporciona configuraciones de simulación (`.settings`), herramientas para extraer características, analizar correlaciones y validar diversidad de escenarios, y un dashboard para explorar resultados. Está pensado para **evaluar protocolos de enrutamiento en redes oportunistas** (DTN/OppNets) en tesis o artículos: un benchmark reproducible con escenarios y perfiles de tráfico documentados.
+## Objetivo del proyecto
 
-**Requisitos:** Java y el ONE compilado (raíz del repo); Python 3 con `numpy`, `pandas`, `scipy`, `matplotlib`, `streamlit` (p. ej. venv del proyecto).
+**the-one-scenario-corpus** es un proyecto de investigación para diseñar, generar, analizar y seleccionar un **corpus de escenarios reproducibles para The ONE (Opportunistic Network Environment)** que permita comparar protocolos de enrutamiento DTN/OppNet **en igualdad de condiciones experimentales**.
 
----
+La idea central es separar claramente:
 
-## Estado actual listo para paper
+1. las **condiciones del escenario** que describen el entorno en el que ocurre la comunicación;
+2. el **protocolo de enrutamiento**, que será la variable experimental que se cambia al comparar algoritmos;
+3. los **resultados de simulación**, que se usan únicamente para evaluar el comportamiento del protocolo y no para decidir qué escenarios forman parte del corpus.
 
-| Elemento | Valor |
-|----------|--------|
-| **Benchmark paper** | [`corpus_v1/`](corpus_v1/) — **540** simulaciones |
-| **Bases estructurales** | [`base_scenarios/`](base_scenarios/) — 45 escenarios sin TP |
-| **Corpus ambiental** | [`corpus_v1/`](corpus_v1/) — 540 escenarios con TP |
-| **Perfiles de tráfico** | 12 (TP01 Baseline … TP12 GroupToGroup) |
-| **Estado** | Benchmark principal en **congelación / revisión metodológica** |
-| **Resultados canónicos** | [analysis/reports/RESULTADOS_ACTUALES.md](analysis/reports/RESULTADOS_ACTUALES.md) |
-| **Figuras paper** | [analysis/figures/paper/](analysis/figures/paper/) |
-| **Tablas paper** | [analysis/figures/paper/tables/](analysis/figures/paper/tables/) |
-| **Checklist freeze** | [analysis/reports/paper_freeze_checklist.md](analysis/reports/paper_freeze_checklist.md) |
-| **Política KPI protocolos** | [analysis/reports/canonical/protocol_benchmark_kpi_policy.md](analysis/reports/canonical/protocol_benchmark_kpi_policy.md) |
-| **v1 archivado** | [`_archive/corpus_dropped_v1/`](_archive/corpus_dropped_v1/) |
+Por tanto, un escenario del corpus debe poder ejecutarse repetidamente con distintos routers sin modificar el resto de condiciones:
 
-**Congelación diversidad (540 escenarios, `corpus_v1`):**
+```text
+Scenario_i + EpidemicRouter
+Scenario_i + ProphetRouter
+Scenario_i + SprayAndWaitRouter
+Scenario_i + ...
+```
 
-| Espacio | Pares \|r\| ≥ 0,7 | % | Silhouette |
-|---------|------------------:|--:|-----------:|
-| Reduced-17 | 7425 | 5,1% | 0,3355 |
-| **Core-23** | 5029 | 3,5% | 0,3045 |
-| Full-46 | 3378 | 2,3% | 0,2354 |
-
-Detalle: [RESULTADOS_ACTUALES.md](analysis/reports/RESULTADOS_ACTUALES.md). Gate: [diversity_validation_readiness.md](analysis/reports/diversity_validation_readiness.md).
-
-**No existe `corpus_v3/`**; cualquier propuesta v3 está solo en [`_archive/`](_archive/) como material histórico.
+El objetivo final es poder afirmar que las diferencias observadas entre protocolos se deben al comportamiento del protocolo bajo las mismas condiciones y no a haber utilizado escenarios distintos.
 
 ---
 
-## Estructura del proyecto
+# Estado metodológico actual
 
-| Ruta | Rol |
-|------|-----|
-| [`corpus_v1/`](corpus_v1/) | **Benchmark activo** — 540 `.settings`, [`manifest.csv`](corpus_v1/manifest.csv) |
-| [`base_scenarios/`](base_scenarios/) | Bases estructurales — 45 `.settings` (sin TP) |
-| [`analysis/`](analysis/) | Pipeline, `data/`, `figures/`, `reports/`, dashboard |
-| [`.wiki-clone/`](.wiki-clone/) | **Wiki paper activa** (EN, páginas numeradas `02-` … `14-`) |
-| [`INVENTARIO.md`](INVENTARIO.md) | Mapa completo del repositorio |
-| [`internal/`](internal/) | Notas metodológicas privadas (gitignored) |
+> **ESTADO METODOLÓGICO**
 
-Los directorios de corpus están **versionados** (`corpus_v1`, `corpus_v1`, …) para que los scripts usen `--corpus corpus_v1` sin romper rutas antiguas.
+Este proyecto parte de una metodología científica definida desde cero para construir un **corpus reproducible y representativo de escenarios para The ONE Simulator**.
 
----
+La metodología se estructura alrededor de ocho preguntas fundamentales:
 
-## Documentación
+1. qué es exactamente un escenario;
+2. qué parámetros se mantienen constantes en todo el corpus;
+3. qué parámetros pueden variar entre escenarios;
+4. cómo se representa cada escenario mediante un vector de características;
+5. cómo se normalizan escenarios de distinta duración, escala o procedencia;
+6. cómo se mide similitud, redundancia, diversidad y cobertura entre escenarios;
+7. cómo se selecciona un corpus final representativo a partir de un pool de candidatos;
+8. cómo se comparan posteriormente distintos protocolos de enrutamiento sobre exactamente las mismas condiciones experimentales.
 
-| Documento | Propósito |
-|-----------|-----------|
-| [INVENTARIO.md](INVENTARIO.md) | Mapa de ficheros y archivo `_archive/` |
-| [analysis/SCRIPTS_INDEX.md](analysis/SCRIPTS_INDEX.md) | Roles de scripts y **pipeline oficial paper** |
-| [analysis/reports/RESULTADOS_ACTUALES.md](analysis/reports/RESULTADOS_ACTUALES.md) | Métricas congeladas de diversidad y ablación |
-| [analysis/figures/README.md](analysis/figures/README.md) | Catálogo de figuras (540 escenarios) |
-| [analysis/docs/features_core_vs_extended.md](analysis/docs/features_core_vs_extended.md) | Core 23 vs extended 46 |
-| [corpus_v1/README.md](corpus_v1/README.md) | Perfiles TP y diseño del benchmark |
+El desarrollo metodológico seguirá un enfoque incremental: primero se define formalmente el espacio de escenarios y sus características, después se estudian los métodos matemáticos de comparación y selección, y finalmente se construye y valida el corpus.
 
-Detalle del pipeline: [analysis/README.es.md](analysis/README.es.md). Referencia **.settings** (secciones 1–15): más abajo en este documento.
+Estado actual:
 
----
-
-## Fuente vs generado
-
-| Tipo | Rutas |
-|------|--------|
-| **Fuente (versionar)** | `corpus_v1/`, `base_scenarios/`, `corpus_dropped_v1/`, scripts `analysis/`, `analysis/docs/`, overlays, `.wiki-clone/` |
-| **Generado (regenerable)** | `analysis/data/*.csv`, la mayoría de `analysis/reports/`, `analysis/figures/` (PNG/PDF) |
-| **Salidas simulación (costosas)** | `reports/` en la raíz del repo (`*MessageStatsReport.txt`, CSVs espaciales, etc.) |
-
-Regenerar con el [pipeline oficial](#pipeline-oficial) siguiente.
-
----
-
-## Pipeline oficial
-
-Comandos paso a paso completos: **[analysis/SCRIPTS_INDEX.md](analysis/SCRIPTS_INDEX.md)**.
-
-**Inicio rápido** (desde la raíz del repo):
-
-```bash
-# 1. Simulaciones (batch)
-python3 scenarios/analysis/run_all_scenarios.py --corpus corpus_v1 \
-  --extra-settings scenarios/analysis/overlays/routing_contact_reports_overrides.txt \
-  --extra-settings scenarios/analysis/overlays/spatial_occupancy_reports_overrides.txt \
-  --jobs 4
-
-# 2. Fases de análisis
-python3 scenarios/analysis/run_analysis.py --corpus corpus_v1 --phase output_metrics
-python3 scenarios/analysis/run_analysis.py --corpus corpus_v1 --phase indirects
-python3 scenarios/analysis/run_analysis.py --corpus corpus_v1 --phase all
-python3 scenarios/analysis/run_analysis.py --corpus corpus_v1 --phase figures_paper
-python3 scenarios/analysis/run_analysis.py --corpus corpus_v1 --phase tables_paper
-
-# 3. Espacial, tiempos de mensajes, validación TP
-python3 scenarios/analysis/scripts/validation/analyze_spatial_occupancy.py \
-  --manifest scenarios/corpus_v1/manifest.csv --reports-dir reports --corpus corpus_v1
-python3 scenarios/analysis/analyze_message_creation_times.py
-python3 scenarios/analysis/scripts/validation/validate_traffic_profiles.py
-
-# 4. Figuras agregadas
-python3 scenarios/analysis/run_figures_aggregated.py --corpus corpus_v1
+```text
+METODOLOGÍA = V1 EN DISEÑO
+CORPUS FINAL = NO CONSTRUIDO
+NÚMERO FINAL DE ESCENARIOS = TBD
+FEATURE SPACE = TBD
+NORMALIZATION CONTRACT = TBD
+SIMILARITY / REDUNDANCY METRICS = TBD
+SELECTION / CLUSTERING METHOD = TBD
+ROUTING BENCHMARK = NO AUTORIZADO TODAVÍA
 ```
 
 ---
 
-## Dashboard
+# 1. Pregunta de investigación
 
-Exploración interactiva (salud del corpus, perfiles TP, heatmaps espaciales, reportes crudos):
+La pregunta general del proyecto es:
 
-```bash
-streamlit run scenarios/analysis/dashboard.py
+> **¿Cómo construir un corpus finito de escenarios para The ONE que cubra de forma suficientemente diversa y no redundante el espacio de condiciones relevantes de una red DTN/OppNet, de modo que distintos protocolos de routing puedan compararse sobre exactamente las mismas condiciones experimentales?**
+
+El problema tiene dos partes diferenciadas.
+
+## 1.1 Construcción del corpus
+
+Partimos de un espacio potencialmente muy grande de configuraciones `.settings`.
+
+Necesitamos transformar ese espacio en un conjunto finito que:
+
+- cubra condiciones diferentes;
+- evite duplicados y escenarios prácticamente equivalentes;
+- preserve casos extremos relevantes;
+- sea computacionalmente ejecutable;
+- tenga trazabilidad;
+- no esté construido para favorecer ningún protocolo concreto.
+
+## 1.2 Benchmark de routing
+
+Una vez congelado el corpus:
+
+```text
+Corpus de escenarios
+        ↓
+Scenario 001 ── Router A / Router B / Router C / ...
+Scenario 002 ── Router A / Router B / Router C / ...
+...
+Scenario N   ── Router A / Router B / Router C / ...
 ```
 
-Detalle de fases y opciones en [analysis/README.es.md](analysis/README.es.md); referencia de opciones `.settings` más abajo en este documento.
+Los protocolos deben ejecutarse sobre los mismos escenarios y con las mismas condiciones iniciales siempre que la semántica del simulador lo permita.
 
 ---
 
-## Guía de configuración (.settings)
+# 2. Qué entendemos por escenario
 
-Esta guía documenta **todas** las opciones de configuración disponibles en los archivos `.settings` del simulador The ONE. El objetivo es disponer de una referencia completa para crear y mantener un **corpus de escenarios sin correlación lineal** y validar protocolos de enrutamiento (primera parte de tesis/paper).
+En esta metodología, el **routing protocol no forma parte de la identidad del escenario**.
 
----
+Conceptualmente definimos un escenario como:
 
-## 1. Cómo se cargan los settings
+\[
+S_i = (E, M_i, C_i)
+\]
 
-- El simulador carga primero `default_settings.txt` (en la raíz del proyecto) y luego el archivo que pasas por línea de comandos (p. ej. `scenarios/corpus_v1/01_urban/U1_CBD_Commuting_HelsinkiMedium__TP01_Baseline.settings`).
-- Las claves del archivo de escenario **sobrescriben** las del default.
-- **Namespaces**: muchas opciones se buscan con prefijo (p. ej. `Scenario.endTime`, `Group1.speed`). Los valores por grupo heredan de `Group.*` si no se definen en `Group1.*`, `Group2.*`, etc.
-- **Sintaxis**: pares `clave = valor`. Comentarios con `#`. En rutas de archivo usar siempre **`/`** (no `\`).
-- **Valores numéricos con sufijos** (bytes, bits/s, etc.):
-  - `k` = 1000, `M` = 10⁶, `G` = 10⁹
-  - `kiB` = 1024, `MiB` = 2²⁰, `GiB` = 2³⁰
-  - Ejemplos: `50k`, `2M`, `5M`, `50M`, `250k`, `1M`, `500k`.
-- **Valores CSV**: listas separadas por comas, p. ej. `25, 35`, `0.5, 1.5`, `0, 120`.
-- **Run arrays** (varios runs con distintos valores):  
-  `nombre = [valorRun1 ; valorRun2 ; valorRun3]`  
-  Con `./one.sh -b 3 archivo.settings` se usan run 1, 2 y 3; el valor efectivo es el del índice de run (modulo la longitud del array).
+con:
 
----
+- \(E\): constantes experimentales globales;
+- \(M_i\): perfil espacial y de movimiento;
+- \(C_i\): perfil de comunicación y tráfico.
 
-## 2. Escenario (Scenario.*)
+El protocolo de routing se aplica posteriormente:
 
-| Clave | Tipo | Descripción | Ejemplo / Valores típicos |
-|-------|------|-------------|----------------------------|
-| `Scenario.name` | string | Nombre del escenario (logs e informes). | `U1_CBD_Commuting_HelsinkiMedium` |
-| `Scenario.endTime` | double (s) | Tiempo de simulación en segundos. | `43200` (12 h) |
-| `Scenario.updateInterval` | double (s) | Paso de actualización del mundo. | `0.1` |
-| `Scenario.simulateConnections` | boolean | Si se simulan enlaces entre nodos. | `true` |
-| `Scenario.nrofHostGroups` | int | Número de grupos de hosts (Group1 … GroupN). | `1`, `2`, `6` |
+\[
+Run_{i,r} = (S_i, R_r)
+\]
 
-**Importante**: no existe `Simulation.endTime` ni `Simulation.seed`; se usan `Scenario.endTime` y `MovementModel.rngSeed`.
+De este modo, un mismo \(S_i\) puede evaluarse con múltiples \(R_r\).
 
 ---
 
-## 3. Mundo y movimiento base (MovementModel.*)
+# 3. Descomposición funcional de un `.settings`
 
-Aplican a todos los modelos de movimiento que no tengan tamaño implícito.
+Para el proyecto dividimos conceptualmente los parámetros de The ONE en cinco bloques.
 
-| Clave | Tipo | Descripción | Ejemplo |
-|-------|------|-------------|---------|
-| `MovementModel.worldSize` | CSV int (2) | Tamaño del mundo en metros (ancho, alto). | `8495, 7504` |
-| `MovementModel.rngSeed` | int | Semilla del RNG de los modelos de movimiento. | `1` |
-| `MovementModel.warmup` | double (s) | Tiempo de “calentamiento” moviendo nodos antes de empezar la simulación. | `1000` |
+```text
+SCENARIO
+│
+├── A. Experimental constants
+│
+├── B. Spatial + Movement profile
+│
+├── C. Communication + Traffic profile
+│
+├── D. Routing protocol
+│
+└── E. Observation / Reports
+```
+
+## 3.1 A. Experimental constants
+
+Son parámetros que queremos fijar globalmente para que los escenarios puedan compararse.
+
+Candidatos iniciales:
+
+```text
+MovementModel.worldSize = 5000,5000
+Scenario.endTime = 86400        # 24 h
+Scenario.updateInterval = TBD
+MovementModel.warmup = TBD
+seed policy = TBD
+```
+
+**Nota:** `MovementModel.worldSize` se expresa en unidades espaciales del simulador, la unidad son metros en los modelos usados por The ONE.
+
+El valor exacto de cada constante la congelaremos únicamente cuando esté justificado.
+
+## 3.2 B. Spatial + Movement profile
+
+Describe dónde están los nodos y cómo se mueven.
+
+Puede incluir:
+
+- mapa o mapas WKT;
+- número de nodos;
+- grupos de nodos;
+- tipo de cada grupo;
+- posición inicial;
+- modelo de movimiento;
+- velocidad;
+- tiempos de espera;
+- rutas;
+- puntos de interés;
+- horarios;
+- trazas externas;
+- parámetros específicos de modelos como `WorkingDayMovement`.
+
+Ejemplos de modelos relevantes:
+
+- `RandomWaypoint`;
+- `RandomWalk`;
+- `ShortestPathMapBasedMovement`;
+- `MapRouteMovement`;
+- `BusMovement`;
+- `WorkingDayMovement`;
+- `ExternalMovement`;
+- `ExternalPathMovement`;
+- otros disponibles o implementados en el proyecto.
+
+## 3.3 C. Communication + Traffic profile
+
+Describe las oportunidades de comunicación y la carga generada.
+
+### Comunicación
+
+Puede incluir:
+
+- número de interfaces;
+- tipo de interfaz;
+- rango de transmisión;
+- velocidad de transmisión;
+- intervalo de escaneo;
+- tamaño de buffer;
+- TTL.
+
+### Tráfico de mensajes
+
+Puede incluir:
+
+- quién envía;
+- quién puede recibir;
+- cuándo se generan mensajes;
+- intervalo entre mensajes;
+- distribución temporal;
+- tamaño de los mensajes;
+- cantidad/carga total;
+- generadores múltiples;
+- tráfico entre grupos.
+
+## 3.4 D. Routing protocol
+
+Es la **variable experimental principal del benchmark posterior**.
+
+Ejemplos:
+
+- `EpidemicRouter`;
+- `ProphetRouter`;
+- `SprayAndWaitRouter`;
+- `MaxPropRouter`;
+- `FirstContactRouter`;
+- `DirectDeliveryRouter`;
+- protocolos propios.
+
+La elección del router **no debe utilizarse para decidir qué escenarios forman parte del corpus**.
+
+## 3.5 E. Observation / Reports
+
+Los reports sirven para evaluar el resultado de las simulaciones.
+
+Ejemplos:
+
+- delivery probability;
+- latency;
+- overhead;
+- hop count;
+- tiempos de contacto;
+- inter-contact times;
+- ocupación de buffer;
+- copias de mensajes;
+- densidad;
+- otros KPIs que se congelen para el benchmark.
+
+Estos resultados pertenecen al benchmark de routing y no al proceso inicial de selección del corpus salvo que una futura metodología lo justifique explícitamente.
 
 ---
 
-## 4. Mapas (MapBasedMovement.*)
+# 4. Representación vectorial del escenario
 
-Obligatorios para cualquier modelo basado en mapa (ShortestPathMapBasedMovement, MapRouteMovement, WorkingDayMovement, BusMovement, etc.).
+Cada escenario deberá transformarse en un vector de características:
 
-| Clave | Tipo | Descripción | Ejemplo |
-|-------|------|-------------|---------|
-| `MapBasedMovement.nrofMapFiles` | int | Número de archivos de mapa. | `1`, `4` |
-| `MapBasedMovement.mapFile1` … `mapFileN` | string | Rutas a archivos WKT de nodos/aristas. | `data/HelsinkiMedium/roads.wkt` |
+\[
+\mathbf{x}_i = [x_{i1}, x_{i2}, \dots, x_{ip}]
+\]
 
-Rutas relativas al directorio de ejecución (normalmente la raíz del proyecto). Más mapas permiten distinguir tipos de vías (ej. aceras vs carreteras) y usarlos con `Group.okMaps`.
+El vector debe representar las condiciones relevantes del escenario **sin incluir la identidad ni los resultados del protocolo de routing**.
+
+La definición exacta de las features todavía está abierta.
+
+## 4.1 Posibles familias de features
+
+### Espacio / mapa
+
+- dimensiones;
+- densidad espacial;
+- propiedades del grafo viario;
+- cobertura;
+- longitud de red;
+- topología;
+- otras propiedades que sean científicamente relevantes.
+
+### Movimiento
+
+- número total de nodos;
+- número de grupos;
+- proporción de tipos de nodos;
+- velocidades;
+- wait times;
+- modelo de movimiento;
+- parámetros de movilidad;
+- actividad temporal;
+- métricas derivadas de trazas cuando proceda.
+
+### Comunicación
+
+- rango;
+- velocidad de transmisión;
+- número/tipo de interfaces;
+- buffer;
+- TTL.
+
+### Tráfico
+
+- tasa de creación de mensajes;
+- tamaño;
+- distribución temporal;
+- distribución origen/destino;
+- densidad de carga;
+- heterogeneidad entre grupos.
+
+## 4.2 Features numéricas y categóricas
+
+No todas las variables de un `.settings` son numéricas.
+
+Ejemplo:
+
+```text
+movementModel = RandomWaypoint
+movementModel = WorkingDayMovement
+movementModel = ExternalMovement
+```
+
+Por tanto, el feature space deberá definir cómo representar:
+
+- variables continuas;
+- variables discretas;
+- rangos min/max;
+- variables categóricas;
+- grupos múltiples;
+- estructuras jerárquicas.
+
+No se aplicará una codificación final hasta revisar sus consecuencias matemáticas.
 
 ---
 
-## 5. Grupos (Group.* y GroupN.*)
+# 5. Independencia, similitud y redundancia
 
-Cada grupo define un tipo de nodos: prefijo de nombre (`groupID`), número de hosts, modelo de movimiento, router, interfaces y parámetros del modelo.
+La metodología v2 debe evitar usar incorrectamente expresiones como:
 
-### 5.1 Parámetros comunes a todos los grupos
+> "corpus de escenarios linealmente independientes"
 
-| Clave | Namespace | Tipo | Descripción | Ejemplo |
-|-------|------------|------|-------------|---------|
-| `groupID` | GroupN | string | Prefijo del nombre de los hosts (p, c, b, t…). | `p`, `b` |
-| `nrofHosts` | GroupN | int | Número de hosts del grupo. | `40`, `80` |
-| `movementModel` | Group | string | Clase del modelo de movimiento (paquete `movement.`). | Ver tabla de modelos más abajo |
-| `router` | Group | string | Clase del router (paquete `routing.`). | Ver tabla de routers |
-| `bufferSize` | Group | int/string | Tamaño del buffer de mensajes (bytes). Sufijos k, M, G. | `5M`, `50M` |
-| `nrofInterfaces` | Group | int | Número de interfaces de red del grupo. | `1`, `2` |
-| `interface1` … `interfaceN` | GroupN | string | Nombre (id) del tipo de interfaz. | `bt0`, `btInterface` |
-| `speed` | Group | CSV double (2) | Velocidad min,max (m/s). | `0.5, 1.5` |
-| `waitTime` | Group | CSV int (2) | Tiempo de espera min,max (s) al llegar a un waypoint. | `0, 120` |
-| `msgTtl` | Group | int | TTL de mensajes en minutos (por grupo). Por defecto infinito. | `300` |
-| `activeTimes` | Group | CSV | Intervalos de actividad (start1, end1, start2, end2…). | Opcional |
-| `okMaps` | GroupN | CSV int | Índices de mapas por los que puede circular el grupo (1..nrofMapFiles). | `1`, `1,2,3` |
+sin una definición matemática precisa.
 
-Las interfaces se definen **fuera** del namespace del grupo, por nombre (ej. `bt0`, `btInterface`):
+Si los escenarios se representan por vectores de dimensión \(p\), como máximo pueden existir \(p\) vectores linealmente independientes en \(\mathbb{R}^p\).
 
-| Clave | Namespace | Tipo | Descripción | Ejemplo |
-|-------|------------|------|-------------|---------|
-| `<id>.type` | (nombre interfaz) | string | Clase de la interfaz (paquete `interfaces.`). | `SimpleBroadcastInterface` |
-| `transmitSpeed` | id interfaz | int/string | Velocidad de transmisión (bytes/s). Sufijos k, M. | `250k`, `2M` |
-| `transmitRange` | id interfaz | double | Alcance en metros. | `10`, `1000` |
-| `scanInterval` | id interfaz | double | Intervalo de escaneo (s). | Opcional |
+Por tanto, para un corpus con \(N > p\), **no puede exigirse independencia lineal de todos los escenarios**.
 
-Ejemplo mínimo de interfaz:
+La pregunta metodológica correcta será algo similar a:
+
+> ¿El corpus cubre suficientemente el espacio de características sin contener redundancia innecesaria?
+
+## 5.1 Métodos que deben estudiarse antes de seleccionar uno
+
+La primera fase matemática analizará, como mínimo:
+
+- Pearson;
+- Spearman;
+- covarianza;
+- varianza;
+- matriz de correlación;
+- distancias Euclídea / Manhattan / cosine y otras justificadas;
+- SVD y rango;
+- PCA;
+- condición numérica;
+- nearest-neighbour distance;
+- clustering;
+- silhouette;
+- medidas de coverage;
+- criterios de saturación.
+
+Cada método deberá documentarse con:
+
+1. qué pregunta responde;
+2. qué supuestos requiere;
+3. qué tipos de features admite;
+4. qué preprocesamiento necesita;
+5. cuándo puede producir conclusiones engañosas;
+6. si se utilizará para features, escenarios, clusters o selección.
+
+**No se fijará una métrica únicamente porque ya exista código para calcularla.**
+
+---
+
+# 6. Normalización del feature space
+
+Las features pueden encontrarse en escalas muy diferentes:
+
+```text
+nodes = 100
+speed = 1.2 m/s
+worldSize = 5000 m
+messageSize = 1000000 bytes
+range = 20 m
+endTime = 86400 s
+```
+
+Compararlas directamente mediante una distancia produciría resultados dominados por las variables de mayor escala numérica.
+
+La metodología deberá estudiar y congelar un procedimiento de normalización antes del clustering o selección.
+
+Posibles métodos a evaluar:
+
+- min-max;
+- z-score;
+- robust scaling;
+- transformaciones logarítmicas cuando estén justificadas;
+- codificación específica para categóricas;
+- normalización por magnitudes físicas relevantes.
+
+La normalización será parte del método científico y deberá quedar versionada.
+
+---
+
+# 7. Normalización de escenarios y trazas reales
+
+Además de normalizar vectores, el proyecto necesita estudiar la **normalización física/temporal de escenarios**.
+
+Ejemplo:
+
+```text
+Duración estándar del corpus = 24 h
+Traza real disponible        = 12 h
+```
+
+No se puede simplemente duplicar o escalar la traza sin definir qué propiedad se quiere preservar.
+
+Si transformamos tiempo mediante:
+
+\[
+t' = s_t t
+\]
+
+y espacio mediante:
+
+\[
+\mathbf{p}' = s_x \mathbf{p}
+\]
+
+la velocidad efectiva se transforma como:
+
+\[
+v' = v \frac{s_x}{s_t}
+\]
+
+Por ello se deberá crear un **Normalization Contract** que indique qué invariantes queremos preservar en cada tipo de transformación.
+
+Posibles invariantes:
+
+- velocidad;
+- duración;
+- densidad espacial;
+- distancias relativas;
+- tasa de generación de mensajes;
+- volumen total de mensajes;
+- patrones horarios;
+- contactos;
+- otros.
+
+Estado:
+
+```text
+NORMALIZATION_CONTRACT = TBD
+```
+
+No se normalizarán datasets reales de forma definitiva hasta cerrar este contrato.
+
+---
+
+# 8. Generación de pools de escenarios
+
+El nuevo diseño no generará directamente el corpus final.
+
+Primero se crearán **pools de escenarios candidatos**.
+
+```text
+Definición del espacio
+        ↓
+Generación de candidatos
+        ↓
+Pool de .settings
+        ↓
+Extracción de features
+        ↓
+Normalización
+        ↓
+Análisis matemático
+        ↓
+Clustering / coverage / redundancy
+        ↓
+Selección de representantes
+        ↓
+Corpus final
+```
+
+Un pool puede contener muchas más configuraciones que el corpus final.
+
+La generación deberá registrar:
+
+- origen del escenario;
+- parámetros efectivos;
+- seed;
+- reglas de generación;
+- versión del generador;
+- normalización aplicada;
+- hash o identificador reproducible cuando proceda.
+
+---
+
+# 9. Selección del corpus final
+
+El tamaño del corpus final **no se fija todavía**.
+
+```text
+TARGET_CORPUS_SIZE = TBD
+```
+
+Valores como 50, 70 o 100 pueden estudiarse como presupuestos experimentales, pero no deben convertirse en criterio científico por sí mismos.
+
+La selección final deberá justificar simultáneamente:
+
+- cobertura del espacio;
+- separación entre representantes;
+- redundancia;
+- conservación de extremos;
+- representación de clusters;
+- estabilidad de la selección;
+- coste computacional posterior.
+
+Una posible arquitectura futura es:
+
+```text
+Pool
+ ↓
+Feature matrix
+ ↓
+Normalize
+ ↓
+Distance / similarity matrix
+ ↓
+Clustering
+ ↓
+Representative selection
+ ↓
+Coverage / saturation check
+ ↓
+Final corpus
+```
+
+Los algoritmos concretos permanecen `TBD` hasta completar la revisión matemática.
+
+---
+
+# 10. Igualdad de condiciones en el benchmark
+
+Una vez congelado un escenario \(S_i\), todos los routers deben utilizar el mismo escenario base.
+
+Conceptualmente:
+
+```text
+S_i
+├── Epidemic
+├── Prophet
+├── SprayAndWait
+├── MaxProp
+└── ...
+```
+
+La configuración debe diseñarse para que cambiar de router no modifique accidentalmente:
+
+- mapa;
+- movilidad;
+- nodos;
+- tráfico;
+- interfaces;
+- seeds relevantes;
+- tiempo de simulación;
+- reports necesarios.
+
+Los parámetros propios de cada router se documentarán por separado.
+
+---
+
+# 11. Estructura recomendada del repositorio
+
+La estructura actual podrá migrarse gradualmente hacia:
+
+```text
+scenarios/
+├── methodology/
+│   ├── scenario_model/
+│   ├── mathematical_methods/
+│   ├── normalization/
+│   └── decisions/
+│
+├── generators/
+│
+├── pools/
+│   ├── pool_v1/
+│   └── ...
+│
+├── corpus/
+│   └── ...                  # vacío hasta selección final
+│
+├── manifests/
+│
+├── analysis/
+│   ├── features/
+│   ├── similarity/
+│   ├── clustering/
+│   ├── coverage/
+│   ├── figures/
+│   └── reports/
+│
+├── benchmark/
+│   ├── routing/
+│   ├── reports/
+│   └── results/
+│
+└── _archive/
+    └── legacy_methodology/
+```
+
+La reorganización física del repositorio **no debe hacerse automáticamente** únicamente porque aparezca aquí. Este árbol define la dirección arquitectónica del nuevo diseño.
+
+---
+
+# 12. Fuente, generado e histórico
+
+| Clase | Descripción |
+|---|---|
+| **Fuente científica** | schemas, manifests congelados, configuraciones, código de generación/selección, decisiones metodológicas |
+| **Datos generados** | matrices de features, distancias, clusters, figuras, informes regenerables |
+| **Simulaciones** | reports generados por The ONE; pueden ser costosos de regenerar |
+| **Legacy** | corpus/metodología anterior conservados únicamente como referencia histórica hasta nueva evaluación |
+
+Nunca se debe presentar un artefacto legacy como evidencia de la metodología v2 sin una decisión explícita de reutilización.
+
+---
+
+# 13. Guía técnica de configuración de The ONE
+
+Las siguientes secciones conservan la referencia técnica útil del proyecto anterior. Su presencia **no significa que todas estas claves vayan a convertirse en features del corpus**.
+
+Cada parámetro deberá clasificarse posteriormente como:
+
+```text
+CONSTANT
+VARIABLE
+DERIVED
+ROUTING_ONLY
+OUTPUT_ONLY
+IMPLEMENTATION_ONLY
+```
+
+---
+
+## 13.1 Cómo se cargan los settings
+
+- The ONE carga `default_settings.txt` y posteriormente las configuraciones indicadas para la ejecución.
+- Las claves posteriores pueden sobrescribir valores anteriores.
+- Muchas opciones utilizan namespaces como `Scenario.*`, `MovementModel.*`, `Group.*` o `Events1.*`.
+- Los valores específicos de `Group1.*`, `Group2.*`, etc. permiten crear grupos heterogéneos.
+- Sintaxis básica: `clave = valor`.
+- Comentarios con `#`.
+- Las rutas deben mantenerse portables y documentadas.
+- Valores numéricos pueden utilizar sufijos como `k`, `M`, `G`, `kiB`, `MiB`, `GiB` según el parser correspondiente.
+- Las listas se representan normalmente como valores CSV.
+
+La política exacta de composición por overlays/base/scenario/router deberá congelarse en una fase posterior.
+
+---
+
+## 13.2 Scenario.*
+
+| Clave | Tipo | Descripción | Estado metodológico inicial |
+|-------|------|-------------|-----------------------------|
+| `Scenario.name` | string | Nombre del escenario. | Identificador / metadata |
+| `Scenario.endTime` | double (s) | Duración de simulación. | Candidato a CONSTANT = 86400 |
+| `Scenario.updateInterval` | double (s) | Paso temporal del mundo. | Candidato a CONSTANT |
+| `Scenario.simulateConnections` | boolean | Activa conexiones. | Candidato a CONSTANT |
+| `Scenario.nrofHostGroups` | int | Número de grupos. | Candidato a VARIABLE |
+
+No existe `Simulation.endTime`; se utiliza `Scenario.endTime`.
+
+---
+
+## 13.3 MovementModel.*
+
+| Clave | Tipo | Descripción | Estado metodológico inicial |
+|-------|------|-------------|-----------------------------|
+| `MovementModel.worldSize` | CSV | Tamaño del mundo. | Candidato a CONSTANT 5000,5000 |
+| `MovementModel.rngSeed` | int | Semilla RNG. | Reproducibilidad / run dimension |
+| `MovementModel.warmup` | double | Calentamiento. | TBD |
+
+---
+
+## 13.4 MapBasedMovement.*
+
+| Clave | Tipo | Descripción |
+|-------|------|-------------|
+| `MapBasedMovement.nrofMapFiles` | int | Número de mapas WKT. |
+| `MapBasedMovement.mapFile1 ... N` | string | Ficheros de mapa. |
+
+La identidad del fichero no debería usarse como feature numérica directa; deberán extraerse características del mapa cuando proceda.
+
+---
+
+# 14. Grupos
+
+Cada `GroupN` representa un conjunto de nodos con comportamiento común.
+
+| Clave | Tipo | Descripción |
+|-------|------|-------------|
+| `groupID` | string | Identificador/prefijo. |
+| `nrofHosts` | int | Número de hosts. |
+| `movementModel` | string | Modelo de movimiento. |
+| `router` | string | Router. **ROUTING_ONLY para identidad del corpus.** |
+| `bufferSize` | numérico | Buffer. |
+| `nrofInterfaces` | int | Interfaces. |
+| `interface1 ... N` | string | Tipos de interfaz. |
+| `speed` | min,max | Velocidad. |
+| `waitTime` | min,max | Espera. |
+| `msgTtl` | int | TTL. |
+| `activeTimes` | intervalos | Actividad temporal. |
+| `okMaps` | índices | Mapas permitidos. |
+
+## 14.1 Heterogeneidad de grupos
+
+La metodología debe poder representar escenarios como:
+
+```text
+70 peatones
+20 coches
+10 buses
+```
+
+sin convertir el orden arbitrario `Group1/Group2/Group3` en una falsa diferencia matemática.
+
+Por tanto, la representación vectorial de grupos será una decisión específica de la Fase 1.
+
+---
+
+# 15. Interfaces de comunicación
+
+Ejemplo:
 
 ```ini
 Group.nrofInterfaces = 1
@@ -226,218 +755,171 @@ bt0.transmitSpeed = 2M
 bt0.transmitRange = 10
 ```
 
----
+Parámetros relevantes:
 
-## 6. Modelos de movimiento
+| Clave | Significado |
+|---|---|
+| `<id>.type` | tipo de interfaz |
+| `transmitSpeed` | velocidad de transmisión |
+| `transmitRange` | alcance |
+| `scanInterval` | intervalo de escaneo |
 
-Clase (valor de `Group.movementModel`) y parámetros específicos que puedes usar en `Group.*` / `GroupN.*`.
-
-| Modelo | Descripción | Parámetros específicos (todos en Group/GroupN) |
-|--------|-------------|---------------------------------------------------|
-| **RandomWaypoint** | Punto aleatorio en el mundo, pausa, siguiente punto. | (usa solo speed, waitTime, worldSize) |
-| **RandomWalk** | Dirección aleatoria, luego recto. | (speed, waitTime, worldSize) |
-| **ShortestPathMapBasedMovement** | Rutas por mapa (Dijkstra). | `okMaps`, `pois` (índices y probabilidades POI), `poiFile` (PointsOfInterest) |
-| **MapRouteMovement** | Sigue una ruta predefinida (WKT). | `routeFile`, `routeType`, `routeFirstStop` |
-| **BusMovement** | Autobús que recorre una ruta y para en paradas. | `routeFile`, `routeType`, `busControlSystemNr` |
-| **WorkingDayMovement** | Día laboral: casa → trabajo (bus/coche) → posible actividad nocturna → casa. | Ver sección 7 |
-| **ExternalMovement** | Posiciones desde archivo externo. | `file`, `nrofPreload` |
-| **ExternalPathMovement** | Rutas desde archivo. | `traceFile`, `activeFile` |
-| **StationaryMovement** | Nodo fijo. | `nodeLocation` (coord) |
-| **LinearMovement** | Movimiento lineal entre dos puntos. | `startLocation`, `endLocation`, `initLocType`, `targetType` |
-| **ClusterMovement** | Dentro de clusters. | (depende de implementación) |
-
-- **routeType** (MapRouteMovement / BusMovement): `1` = circular, `2` = ping-pong (ida y vuelta).
-- **routeFirstStop**: índice de la primera parada (0-based); si no se pone o es negativo, se elige aleatoria.
+La metodología deberá decidir cuáles son constantes y cuáles forman parte del espacio de escenarios.
 
 ---
 
-## 7. WorkingDayMovement (día laboral) — detalle
+# 16. Modelos de movimiento
 
-Combina: **HomeActivityMovement**, **OfficeActivityMovement**, **BusTravellerMovement** o **CarMovement**, **EveningActivityMovement**. Requiere mapa y, si hay uso de bus, **al menos un grupo con BusMovement** en el mismo `busControlSystemNr` para que existan paradas (si no, NPE en `BusTravellerMovement`).
+Modelos relevantes conocidos en el proyecto:
 
-### 7.1 Parámetros globales WorkingDayMovement
+| Modelo | Resumen |
+|---|---|
+| `RandomWaypoint` | puntos aleatorios con movimiento y espera |
+| `RandomWalk` | desplazamiento aleatorio |
+| `ShortestPathMapBasedMovement` | rutas de menor coste sobre mapa |
+| `MapRouteMovement` | rutas predefinidas |
+| `BusMovement` | movimiento sobre rutas/paradas |
+| `WorkingDayMovement` | comportamiento diario compuesto |
+| `ExternalMovement` | posiciones externas |
+| `ExternalPathMovement` | trazas/rutas externas |
+| `StationaryMovement` | nodos fijos |
+| `LinearMovement` | trayectoria lineal |
+| `ClusterMovement` | movimiento basado en clusters según implementación |
 
-| Clave | Tipo | Descripción | Ejemplo |
-|-------|------|-------------|---------|
-| `routeFile` | string | Ruta WKT del bus (para BusTravellerMovement). | `data/HelsinkiMedium/A_bus.wkt` |
-| `busControlSystemNr` | int | ID del sistema de buses (-1 = sin buses “reales”, pero hace falta 1 bus en algún grupo para paradas). | `-1` |
-| `ownCarProb` | double | Probabilidad de usar coche en lugar de bus. | `0.0`, `0.2` |
-| `probGoShoppingAfterWork` | double | Probabilidad de hacer actividad nocturna (ir de compras / quedar). | `0.3` |
-
-### 7.2 HomeActivityMovement
-
-| Clave | Tipo | Descripción | Ejemplo |
-|-------|------|-------------|---------|
-| `homeLocationsFile` | string | Archivo WKT con puntos de hogares. | `data/HelsinkiMedium/A_homes.wkt` |
-| `timeDiffSTD` | int (s) | Desviación típica del desfase horario (despertar) en segundos. | `1800` |
-
-### 7.3 OfficeActivityMovement
-
-| Clave | Tipo | Descripción | Ejemplo |
-|-------|------|-------------|---------|
-| `officeLocationsFile` | string | WKT con ubicaciones de oficinas. | `data/HelsinkiMedium/A_offices.wkt` |
-| `workDayLength` | int (s) | Duración de la jornada. | `28800` (8 h) |
-| `nrOfOffices` | int | Número de oficinas (si no hay archivo). | `10` |
-| `officeSize` | int | Tamaño/radio de oficina. | `40` |
-| `officeWaitTimeParetoCoeff` | double | Coef. Pareto para tiempo en oficina. | `1.4` |
-| `officeMinWaitTime` | double (s) | Mínimo tiempo en oficina. | `300` |
-| `officeMaxWaitTime` | double (s) | Máximo tiempo en oficina. | `900` |
-
-### 7.4 EveningActivityMovement (actividad nocturna / “shopping”)
-
-| Clave | Tipo | Descripción | Ejemplo |
-|-------|------|-------------|---------|
-| `meetingSpotsFile` | string | WKT con puntos de encuentro / centros comerciales. | `data/HelsinkiMedium/A_meetingspots.wkt` |
-| `shoppingControlSystemNr` | int | ID del sistema de actividad nocturna (-1 = desactivado). | `-1` |
-| `nrOfMeetingSpots` | int | Número de spots si no hay archivo. | `10` |
-| `minGroupSize` | int | Tamaño mínimo de grupo. | `1` |
-| `maxGroupSize` | int | Tamaño máximo de grupo. | `5` |
-| `minAfterShoppingStopTime` | int (s) | Mínimo tiempo de espera en el sitio. | `60` |
-| `maxAfterShoppingStopTime` | int (s) | Máximo tiempo de espera. | `600` |
-
-En el código, el sistema de “evening activity” se configura con **`shoppingControlSystemNr`** (no `eveningActivityControlSystemNr`). Si en algún ejemplo aparece `eveningActivityControlSystemNr`, puede ser un alias o documentación; el que lee el simulador es `shoppingControlSystemNr`.
-
-### 7.5 BusTravellerMovement (uso interno; mismo grupo que WorkingDayMovement)
-
-- `busControlSystemNr`: mismo que el sistema donde hay al menos un **BusMovement**.
-- `probs` (opcional): probabilidades para cadenas de Markov (número de paradas).
-- `probTakeOtherBus` (opcional): probabilidad de coger otro bus.
-
-### 7.6 Orden de grupos si hay bus
-
-Para evitar NPE por `getBusStops() == null`, el grupo que tenga **BusMovement** debe crearse **antes** que los peatones con WorkingDayMovement. En The ONE los grupos se crean en orden Group1, Group2, … Por tanto: **Group1 = 1 host BusMovement**, **Group2 = N hosts WorkingDayMovement** (mismo `busControlSystemNr` y mismo `routeFile`).
+La clase del movement model es categórica y necesita una representación explícita en el feature space.
 
 ---
 
-## 8. Eventos (tráfico de mensajes)
+# 17. WorkingDayMovement
 
-### 8.1 Contador y clase
+El código y documentación previa del proyecto contienen experiencia útil con:
 
-| Clave | Tipo | Descripción | Ejemplo |
-|-------|------|-------------|---------|
-| `Events.nrof` | int | Número de generadores de eventos. | `1` |
-| `Events1.class` | string | Clase del primer generador (paquete `input.`). | `MessageEventGenerator` |
+- `HomeActivityMovement`;
+- `OfficeActivityMovement`;
+- `BusTravellerMovement` / `CarMovement`;
+- `EveningActivityMovement`;
+- `BusMovement`.
 
-### 8.2 MessageEventGenerator
+Parámetros potencialmente relevantes incluyen:
 
-| Clave | Tipo | Descripción | Ejemplo |
-|-------|------|-------------|---------|
-| `Events1.interval` | CSV int (2) | Intervalo entre mensajes (min, max) en segundos. | `25, 35` |
-| `Events1.size` | CSV int (2) | Tamaño del mensaje (min, max) en bytes. Sufijos k, M. | `50k, 150k` |
-| `Events1.hosts` | CSV int (2) | Rango de direcciones de hosts (min, max); [min, max). Debe haber al menos 2 nodos. | `0, 81` (81 hosts) |
-| `Events1.tohosts` | CSV int (2) | (Opcional) Rango de destinos; si se define, fuentes vienen de `hosts`. | Opcional |
-| `Events1.prefix` | string | Prefijo único del ID de mensaje (obligatorio). | `M` |
-| `Events1.time` | CSV double (2) | (Opcional) Ventana temporal de creación (inicio, fin) en segundos. | Opcional |
+- `ownCarProb`;
+- `probGoShoppingAfterWork`;
+- `timeDiffSTD`;
+- `workDayLength`;
+- ubicación de hogares/oficinas/meeting spots;
+- tamaño de grupos;
+- tiempos de actividad.
 
-**Importante**: no existen `Events1.toHosts`, `Events1.fromHosts` ni valor `random`; se usan rangos numéricos `hosts` y opcionalmente `tohosts`. El total de hosts es la suma de `Group1.nrofHosts + Group2.nrofHosts + ...`; los índices van de 0 a (totalHosts - 1), por tanto `hosts = 0, totalHosts`.
-
----
-
-## 9. Reports
-
-| Clave | Tipo | Descripción | Ejemplo |
-|-------|------|-------------|---------|
-| `Report.nrofReports` | int | Número de informes. | `2` |
-| `Report.reportDir` | string | Directorio de salida (p. ej. relativos a la raíz). | `reports/` |
-| `Report.warmup` | double (s) | Período de warmup para informes. | `0` |
-| `Report.report1` … `reportN` | string | Clases de informe (paquete `report.`). | Ver tabla |
-
-Algunas clases de informe útiles:
-
-- `MessageStatsReport`, `MessageDeliveryReport`, `MessageDelayReport`, `CreatedMessagesReport`, `DeliveredMessagesReport`
-- `ContactTimesReport`, `InterContactTimesReport`, `TotalContactTimeReport`
-- `BufferOccupancyReport`, `MessageCopyCountReport`, `DistanceDelayReport`
-- `NodeDensityReport`, `LocationSnapshotReport`, `MovementNs2Report`
-
-Cada report puede tener sus propias opciones (p. ej. `MessageStatsReport.output`, `ContactTimesReport.granularity`). Ver clases en `src/report/` si necesitas parámetros concretos.
+Estas variables no se incorporarán automáticamente al vector hasta definir la semántica de cada una.
 
 ---
 
-## 10. Routers
+# 18. Eventos y tráfico de mensajes
 
-Valor de `Group.router` (clase en paquete `routing.`). Algunos parámetros adicionales por router (namespace = nombre de la clase):
-
-| Router | Descripción | Parámetros opcionales (ej. ProphetRouter.xxx) |
-|--------|-------------|------------------------------------------------|
-| **EpidemicRouter** | Réplica total (flooding). | — |
-| **SprayAndWaitRouter** | Spray-and-wait. | `nrofCopies`, `binaryMode` |
-| **ProphetRouter** | PROPHET. | `secondsInTimeUnit`, `beta`, `gamma` |
-| **MaxPropRouter** | MaxProp. | `probSetMaxSize`, `alpha` |
-| **FirstContactRouter** | Primer contacto. | — |
-| **DirectDeliveryRouter** | Solo entre origen y destino. | — |
-| **PassiveRouter** | No reenvía. | — |
-| **WaveRouter** | Wave. | `immunityTime`, `custodyFraction` |
-| **LifeRouter** | LIFE. | `nmcount` |
-
-Ejemplo:
+Configuración básica:
 
 ```ini
-Group.router = EpidemicRouter
-# O con parámetros:
-# SprayAndWaitRouter.nrofCopies = 6
-# SprayAndWaitRouter.binaryMode = true
-# ProphetRouter.secondsInTimeUnit = 30
+Events.nrof = 1
+Events1.class = MessageEventGenerator
+Events1.interval = 25, 35
+Events1.size = 50k, 150k
+Events1.hosts = 0, 100
+Events1.prefix = M
+```
+
+Parámetros relevantes:
+
+| Clave | Significado |
+|---|---|
+| `Events.nrof` | número de generadores |
+| `Events1.interval` | intervalo entre mensajes |
+| `Events1.size` | tamaño |
+| `Events1.hosts` | rango de emisores |
+| `Events1.tohosts` | rango de receptores |
+| `Events1.time` | ventana de generación |
+| `Events1.prefix` | prefijo identificador |
+
+El nuevo modelo deberá ser capaz de representar varios generadores y tráfico entre grupos.
+
+---
+
+# 19. Routers
+
+Routers actualmente relevantes:
+
+| Router | Parámetros habituales |
+|---|---|
+| `EpidemicRouter` | — |
+| `SprayAndWaitRouter` | `nrofCopies`, `binaryMode` |
+| `ProphetRouter` | `secondsInTimeUnit`, `beta`, `gamma` |
+| `MaxPropRouter` | parámetros específicos |
+| `FirstContactRouter` | — |
+| `DirectDeliveryRouter` | — |
+| otros / propios | según implementación |
+
+**Regla metodológica v2:**
+
+```text
+router ∉ feature vector del escenario
+```
+
+El router pertenece al diseño de benchmark posterior.
+
+---
+
+# 20. Reports y KPIs
+
+Reports de interés conocidos:
+
+- `MessageStatsReport`;
+- `MessageDeliveryReport`;
+- `MessageDelayReport`;
+- `CreatedMessagesReport`;
+- `DeliveredMessagesReport`;
+- `ContactTimesReport`;
+- `InterContactTimesReport`;
+- `TotalContactTimeReport`;
+- `BufferOccupancyReport`;
+- `MessageCopyCountReport`;
+- `DistanceDelayReport`;
+- `NodeDensityReport`;
+- `LocationSnapshotReport`;
+- `MovementNs2Report`.
+
+La política final de KPIs deberá congelarse antes del benchmark de routing.
+
+Posibles métricas objetivo:
+
+```text
+delivery probability
+latency
+overhead ratio
+hop count
+buffer behaviour
+contact statistics
+```
+
+Estado:
+
+```text
+ROUTING_KPI_POLICY = TBD
 ```
 
 ---
 
-## 11. Optimización
+# 21. Ejemplo mínimo conceptual
 
-| Clave | Tipo | Descripción | Ejemplo |
-|-------|------|-------------|---------|
-| `Optimization.cellSizeMult` | int | Multiplicador de tamaño de celda (mundo). | `5` |
-| `Optimization.randomizeUpdateOrder` | boolean | Aleatorizar orden de actualización de nodos. | `true` |
-
----
-
-## 12. Variación de escenarios (corpus sin correlación lineal)
-
-Para generar un corpus variado (p. ej. 50–70 escenarios) y reducir correlación entre ellos, conviene variar de forma **sistemática** (pero no lineal) los siguientes ejes:
-
-1. **Duración y semilla**
-   - `Scenario.endTime`: 6h, 12h, 24h (21600, 43200, 86400).
-   - `MovementModel.rngSeed`: distintos seeds (1, 2, …, 60 o muestreo aleatorio).
-
-2. **Número y tipo de nodos**
-   - `GroupN.nrofHosts`: 40, 60, 80, 100.
-   - Proporción entre grupos (peatones vs buses/tranvías).
-
-3. **Movimiento**
-   - `MovementModel.worldSize` si usas mundo cuadrado/rectangular.
-   - `speed`, `waitTime`: distintos rangos (más estáticos vs más móviles).
-   - Para WorkingDayMovement: `timeDiffSTD`, `workDayLength`, `probGoShoppingAfterWork`, `ownCarProb`, archivos WKT distintos (A_, B_, C_… en HelsinkiMedium).
-
-4. **Comunicación**
-   - `transmitRange`: 5, 10, 20 m.
-   - `transmitSpeed`: 250k, 2M, 10M.
-   - `bufferSize`: 5M, 50M.
-
-5. **Tráfico**
-   - `Events1.interval`: (20,40), (25,35), (30,60).
-   - `Events1.size`: (50k,150k), (500k,1M).
-   - `Group.msgTtl`: 60, 300, 7200.
-
-6. **Protocolo**
-   - Cambiar `Group.router` entre escenarios (EpidemicRouter, ProphetRouter, SprayAndWaitRouter, etc.) para validar protocolos.
-
-7. **Run arrays**
-   - Usar `[v1 ; v2 ; v3]` en una misma clave y ejecutar con `-b 3` para obtener 3 escenarios por archivo (útil para barrido de un solo parámetro).
-
-Combinando valores de forma **ortogonal** (p. ej. 4 duraciones × 5 seeds × 3 tamaños de red) se obtienen muchos escenarios; luego se puede filtrar o muestrear para quedarse con un conjunto (p. ej. 70) y comprobar correlación (p. ej. análisis de correlación entre métricas o entre parámetros).
-
----
-
-## 13. Ejemplo mínimo de escenario
+El siguiente ejemplo es únicamente técnico; no define todavía un escenario científico válido para el corpus.
 
 ```ini
-Scenario.name = mi_escenario
-Scenario.endTime = 43200
+Scenario.name = candidate_001
+Scenario.endTime = 86400
 Scenario.nrofHostGroups = 1
 Scenario.simulateConnections = true
 Scenario.updateInterval = 0.1
 
 MovementModel.rngSeed = 1
-MovementModel.worldSize = 4500, 3400
+MovementModel.worldSize = 5000, 5000
 
 Group.movementModel = RandomWaypoint
 Group.router = EpidemicRouter
@@ -465,57 +947,131 @@ Report.report1 = MessageStatsReport
 Report.report2 = ContactTimesReport
 ```
 
+Para el corpus real, el router debería poder sobrescribirse mediante overlay o mecanismo equivalente sin modificar la identidad de las condiciones del escenario.
+
 ---
 
-## 14. Referencia rápida de namespaces
+# 22. Referencia rápida de namespaces
 
 | Prefijo | Uso |
 |---------|-----|
-| `Scenario.*` | Nombre, tiempo, grupos, conexiones. |
-| `MovementModel.*` | worldSize, rngSeed, warmup. |
-| `MapBasedMovement.*` | nrofMapFiles, mapFile1… |
-| `Group.*` | Valores por defecto para todos los grupos. |
-| `Group1.*`, `Group2.*`, … | Valores específicos del grupo. |
-| `bt0.*`, `btInterface.*`, … | Parámetros de cada tipo de interfaz (por nombre). |
-| `Events.*`, `Events1.*` | Número de generadores y parámetros de MessageEventGenerator. |
-| `Report.*` | Número de informes, directorio, nombres de clases. |
-| `ProphetRouter.*`, `SprayAndWaitRouter.*`, … | Parámetros del router si los usa. |
-
-Con esta guía puedes definir de forma precisa cada aspecto del escenario y planificar el corpus de escenarios para la validación de protocolos de enrutamiento.
+| `Scenario.*` | escenario general |
+| `MovementModel.*` | mundo, seed, warmup |
+| `MapBasedMovement.*` | mapas |
+| `Group.*` | defaults de grupo |
+| `Group1.*`, `Group2.*`, ... | grupos específicos |
+| `<interface>.*` | comunicación |
+| `Events.*`, `Events1.*`, ... | tráfico |
+| `Report.*` | outputs |
+| `<RouterClass>.*` | configuración específica de routing |
 
 ---
 
-## 15. Análisis del corpus y dashboard
+# 23. Convenciones científicas del proyecto
 
-El análisis del corpus (extracción de features, correlación entre escenarios, validación sobre outputs) se hace con el **pipeline en `scenarios/analysis/`**:
+## 23.1 No confundir parámetros con resultados
 
-- **Script principal:** `scenarios/analysis/run_analysis.py`, ejecutable por fases: `features` → `features_report` → `normalize` → `correlation` → `feature_correlation` → `ablation` → `figures` → `figures_paper` → `tables_paper` → `indirects` → `output_metrics` → `outputs`. Ver `scenarios/analysis/README.es.md` para la lista completa de fases y opciones.
-- **Salidas:** `analysis/data/` (CSV de features, normalizados, matrices de correlación y distancias, `output_metrics.csv`), `analysis/figures/` (heatmaps, histogramas, scatter), `analysis/reports/` (informes de texto).
-- **Criterio de benchmark (freeze final optimizado):**  
-  - **Full-46:** 46 pares (2,6 %) con `|r| >= 0,7`; `max |r| = 0,9377`; `distancia coseno mínima = 0,0620`; `silhouette = 0,2929`; `97,4 %` de pares por debajo de 0,7.  
-  - **Core-23:** 58 pares (3,3 %) con `|r| >= 0,7`; `max |r| = 0,9829`; `distancia coseno mínima = 0,0152`; `silhouette = 0,2681`.  
-  - Dependencia feature-feature residual en core: `mm_WDM <-> mm_Bus = 0,9393`.  
-  Estado de congelación: **baseline mejorado, estable y publicable** (no óptimo final).
+Features utilizadas para seleccionar el corpus deben representar condiciones del escenario, no el rendimiento de un router, salvo decisión metodológica explícita futura.
 
-**Dashboard interactivo:** para visualizar todo en un solo sitio (resumen, resultados por fase, detalle por escenario, comparación entre escenarios y reportes crudos):
+## 23.2 No confundir correlación con independencia lineal
 
-```bash
-# Desde la raíz del repo
-streamlit run scenarios/analysis/dashboard.py
+Pearson y Spearman no demuestran por sí solos independencia lineal de un conjunto de escenarios.
 
-# O desde scenarios/analysis
-cd scenarios/analysis && streamlit run dashboard.py
+## 23.3 No fijar un número de escenarios sin criterio
 
-# O usando el venv del proyecto
-./venv/bin/streamlit run scenarios/analysis/dashboard.py
+`N = 50` puede ser un presupuesto de trabajo, pero el corpus final debe justificarse mediante cobertura, saturación, representatividad y coste experimental.
+
+## 23.4 No normalizar trazas de forma arbitraria
+
+Toda transformación espacio-temporal debe declarar qué cantidades conserva y cuáles altera.
+
+## 23.5 No seleccionar el corpus usando resultados de routing
+
+El corpus debe ser independiente del protocolo que posteriormente queremos evaluar.
+
+## 23.6 Separar desarrollo, validación y corpus final
+
+Los escenarios utilizados para ajustar reglas de generación/selección no deben confundirse automáticamente con evidencia final.
+
+---
+
+# 24. Definiciones de trabajo
+
+**Scenario candidate**  
+Configuración válida de condiciones experimentales susceptible de entrar en un pool.
+
+**Pool**  
+Conjunto amplio de candidatos antes de selección.
+
+**Feature vector**  
+Representación matemática normalizada o normalizable de un escenario.
+
+**Corpus**  
+Conjunto final congelado de escenarios seleccionados para el benchmark.
+
+**Routing benchmark**  
+Ejecución de diferentes protocolos sobre exactamente el mismo corpus.
+
+**Coverage**  
+Grado en que el corpus representa el espacio de condiciones definido.
+
+**Redundancy**  
+Presencia de escenarios que aportan información espacial/paramétrica sustancialmente equivalente según la métrica congelada.
+
+**Normalization Contract**  
+Reglas que definen cómo adaptar features y/o escenarios físicos manteniendo invariantes explícitos.
+
+---
+
+# 25. Implementación existente reutilizable
+
+El repositorio anterior ya contiene código útil para:
+
+- ejecución batch de The ONE;
+- extracción de parámetros/features;
+- normalización;
+- correlaciones;
+- matrices de distancia;
+- generación de figuras;
+- dashboards;
+- validación de configuraciones;
+- reports.
+
+Ese código puede reutilizarse únicamente después de comprobar que implementa la metodología v2.
+
+No asumir:
+
+```text
+existing code == scientific authority
 ```
 
-Requiere `streamlit`, `pandas` (y las dependencias del análisis en el venv del proyecto).
+La autoridad será la metodología congelada y sus tests.
 
 ---
 
-## Autor / contacto
+# 26. Requisitos
 
-**the-one-scenario-corpus** — corpus y análisis de escenarios para The ONE.
+Base técnica aproximada:
+
+- Java compatible con la versión de The ONE utilizada;
+- The ONE compilado;
+- Python 3;
+- `numpy`;
+- `pandas`;
+- `scipy`;
+- `matplotlib`;
+- `scikit-learn` probablemente necesario para parte del análisis matemático/clustering;
+- `streamlit` si se mantiene el dashboard.
+
+Las versiones se congelarán posteriormente en un entorno reproducible (`requirements.txt`, `pyproject.toml`, Conda o equivalente).
+
+---
+
+# 27. Autor / contacto
+
+**the-one-scenario-corpus** — metodología y corpus reproducible de escenarios para benchmarking de protocolos DTN/OppNet en The ONE.
 
 - **Autor:** Raül de Arriba
+
+---
+
